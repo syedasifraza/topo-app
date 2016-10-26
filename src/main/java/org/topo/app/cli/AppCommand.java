@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.util.JSONPObject;
+import javafx.scene.shape.*;
 import jdk.nashorn.internal.parser.JSONParser;
 import org.apache.commons.lang.math.RandomUtils;
 import org.apache.felix.scr.annotations.Reference;
@@ -34,14 +35,15 @@ import org.onosproject.core.CoreService;
 import org.onosproject.incubator.net.PortStatisticsService;
 import org.onosproject.incubator.net.intf.InterfaceService;
 import org.onosproject.net.*;
-import org.onosproject.net.device.DefaultPortDescription;
-import org.onosproject.net.device.DeviceService;
-import org.onosproject.net.device.PortDescription;
-import org.onosproject.net.device.PortStatistics;
+import org.onosproject.net.Path;
+import org.onosproject.net.config.basics.BasicLinkConfig;
+import org.onosproject.net.device.*;
 import org.onosproject.net.flow.*;
 import org.onosproject.net.host.HostService;
 import org.onosproject.net.intent.IntentService;
+import org.onosproject.net.link.LinkAdminService;
 import org.onosproject.net.link.LinkService;
+import org.onosproject.net.link.LinkStore;
 import org.onosproject.net.statistic.FlowStatisticService;
 import org.onosproject.net.statistic.Load;
 import org.onosproject.net.statistic.StatisticService;
@@ -96,6 +98,10 @@ public class AppCommand extends AbstractShellCommand {
 //        HostService hostService = get(HostService.class);
 //        TopologyService topologyService=get(TopologyService.class);
 
+        //print("%s",one);
+        //print("%s",two);
+
+        ///From here I am commeting actual program
         HostId oneId = HostId.hostId(one);
         HostId twoId = HostId.hostId(two);
         DeviceService deviceService=get(DeviceService.class);
@@ -106,12 +112,13 @@ public class AppCommand extends AbstractShellCommand {
         CoreService coreService = get(CoreService.class);
         StatisticService service = get(StatisticService.class);
         ApplicationId appId = coreService.registerApplication("onos.add.flow.rule");
-        print("%s",deviceService.getPorts(DvcOneId).get(2).portSpeed());
+        //print("%s",deviceService.getPorts(DvcOneId).get(2).portSpeed());
 
 
+        //print("%s",topologyService.getPaths(topologyService.currentTopology(),DvcOneId,DvcTwoId));
 
-//        //print("%s\n", topologyService.getDisjointPaths(topologyService.currentTopology(),DvcOneId,DvcTwoId));
-//        PathService te = get(PathService.class);
+        //print("%s\n", topologyService.getDisjointPaths(topologyService.currentTopology(),DvcOneId,DvcTwoId));
+        //PathService te = get(PathService.class);
         //print("%s",te.getDisjointPaths(DvcOneId,DvcTwoId));
         Set<DisjointPath> p = topologyService.getDisjointPaths(
                 topologyService.currentTopology(), DvcOneId, DvcTwoId);
@@ -121,8 +128,6 @@ public class AppCommand extends AbstractShellCommand {
 //        Map<DeviceId, Set<Path>> srcPath = new HashMap<>();
 //        Set<Path> ppp = te.getPaths(hostService.getHost(oneId).location().elementId(),
 //                hostService.getHost(twoId).location().elementId());
-
-
 
 //        Set<Path> p1 = topologyService.getPaths(topologyService.currentTopology(), DvcOneId, DvcTwoId);
 //        LinkService linkService = get(LinkService.class);
@@ -147,28 +152,94 @@ public class AppCommand extends AbstractShellCommand {
         long portSpeed = 0;
         long loadSrcPort = 0;
         long loadDstPort = 0;
+        long loadSrcPortB = 0;
+        long loadDstPortB = 0;
+        long maxLoad = 0;
+        long maxLoadB = 0;
+        long minLoad = 1000;
+        String text = "";
+        Path path = null;
 
         for(DisjointPath test: p) {
 
             ConnectPoint cpSrc = new ConnectPoint(test.primary().src().elementId(),
                     PortNumber.portNumber(test.primary().src().port().toLong()));
-            Load srcPortLoad=service.load(cpSrc);
+            Load srcPortLoad = service.load(cpSrc);
             ConnectPoint cpDst = new ConnectPoint(test.primary().dst().elementId(),
                     PortNumber.portNumber(test.primary().dst().port().toLong()));
-            Load dstPortLoad=service.load(cpDst);
+            Load dstPortLoad = service.load(cpDst);
+
+            ConnectPoint cpSrcB = new ConnectPoint(test.backup().src().elementId(),
+                    PortNumber.portNumber(test.backup().src().port().toLong()));
+            Load srcPortLoadB = service.load(cpSrcB);
+            ConnectPoint cpDstB = new ConnectPoint(test.backup().dst().elementId(),
+                    PortNumber.portNumber(test.backup().dst().port().toLong()));
+            Load dstPortLoadB = service.load(cpDstB);
+
+
 
             //print("\nSrc Port Load on %s Kbps ", ((srcPortLoad.rate()*8)/1024)*2);
             //print("\nDst Port Load on %s Kbps", ((dstPortLoad.rate()*8)/1024)*2);
-            loadSrcPort=((srcPortLoad.rate()*8)/1024)*2;
-            loadDstPort = ((dstPortLoad.rate()*8)/1024)*2;
-            portSpeed = deviceService.getPort(test.src().deviceId(), test.src().port()).portSpeed();
+
+            loadSrcPort = ((srcPortLoad.rate() * 8) / 1024) * 2;
+            loadDstPort = ((dstPortLoad.rate() * 8) / 1024) * 2;
+            portSpeed = deviceService.getPort(test.src().deviceId(), test.src().port())
+                    .portSpeed();
+
+
+            loadSrcPortB = ((srcPortLoadB.rate() * 8) / 1024) * 2;
+            loadDstPortB = ((dstPortLoadB.rate() * 8) / 1024) * 2;
+
 
             //print("\nPortspeed = %s",deviceService.getPort(test.src().deviceId(), test.src().port()).portSpeed());
 
-            cost = test.backup().cost();
-            if(cost<lc){
+            //print("%s",new ConnectPoint(test.backup().src().elementId(),
+            //        PortNumber.portNumber(test.backup().dst().port().toLong())));
+            //cost = test.backup().cost();
+            //print("%s < %s",cost,lc);
+            //print("%s",test.primary());
+            //print("%s",portSpeed*0.02);
+            maxLoad = maxLoad(loadSrcPort, loadDstPort);
+            maxLoadB = maxLoad(loadSrcPortB, loadDstPortB);
+            //print("MaxLoad %s \n",maxLoadB);
+            //print("Src Port = %s AND Dst Port = %s \n",cpSrcB, cpDstB);
+
+
+            if (maxLoad > (portSpeed * 0.08)) {
+                if (maxLoadB < minLoad) { //(portSpeed*0.02)){
+
+                    minLoad = maxLoadB;
+                /*if(maxLoadB < maxLoad){
+                    minLoad = maxLoadB;
+                    print("MaxLoad = %s \n MaxLoadB = %s",maxLoad, maxLoadB);
+                }*/
+                    text = "Backup";
+                    path = test.backup();
+                }
+            } else {
+                minLoad = maxLoad;
+                text = "Primary";
+                path = test.primary();
+            }
+
+
+        }
+       /* for(Link links: path.links()){
+            ConnectPoint cpSrc = new ConnectPoint(links.src().elementId(),
+                    PortNumber.portNumber(links.src().port().toLong()));
+            Load srcPortLoad = service.load(cpSrc);
+            print("\nConnection Point %s \nLink Load = %s",cpSrc, (((srcPortLoad.rate() * 8) / 1024) * 2));
+        }*/
+
+
+            //print("SRC = %s \n DST \n %s \n",loadSrcPortB,loadDstPortB);
+            //print("Backup Load = %s \n",maxLoadB);
+
+            ///Committed now////
+            /*if(cost < lc){
                 lc = cost;
-                if(maxLoad(loadSrcPort,loadDstPort)>(portSpeed*0.02)){
+                if(maxLoad > (portSpeed*0.02)){
+
                     backupPath(test.backup().links(), oneId, twoId, appId);
 
                     installFlow(test.src().deviceId(), test.backup().src().port(),
@@ -203,12 +274,12 @@ public class AppCommand extends AbstractShellCommand {
                     print("primary path %s", maxLoad(loadSrcPort,loadDstPort));
                 }
 
-            }
+            }*/
             //print("%s = %s",test.backup().src().elementId(),test.backup().src().port());
             //print("%s = %s",test.backup().dst().elementId(),test.backup().dst().port());
 
 
-        }
+        //}
 
 /*        for(Path test2: p1){
             print("\n\n\n%s", test2);
@@ -221,9 +292,29 @@ public class AppCommand extends AbstractShellCommand {
 //        Load load1=service.load(cp);
 //        print("Load on %s -> %s", cp, load1);
        // }
+
+        backupPath(path.links(), oneId, twoId, appId);
+
+        installFlow(path.src().deviceId(),path.src().port(),
+                hostService.getHost(oneId).location().port(),
+                oneId.mac(), twoId.mac(), appId);
+        installFlow(path.src().deviceId(), hostService.getHost(oneId).location().port(),
+                path.src().port(),
+                twoId.mac(), oneId.mac(), appId);
+        installFlow(path.dst().deviceId(), path.dst().port(),
+                hostService.getHost(twoId).location().port(),
+                twoId.mac(), oneId.mac(), appId);
+        installFlow(path.dst().deviceId(), hostService.getHost(twoId).location().port(),
+                path.dst().port(),
+                oneId.mac(), twoId.mac(), appId);
+        //print("New Path %s \n", maxLoad(loadSrcPort,loadDstPort));
+
+        //print("%s \n %s",minLoad,path);
+
     }
 
     private long maxLoad(long a, long b){
+        //print("Source Port = %s \n Dst Port = %s \n", a, b);
         if(a<0){
             return b;
         }
